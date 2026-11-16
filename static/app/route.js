@@ -3,6 +3,8 @@ const taskKinds = { reviews: 'review', developments: 'development' }, listTabs =
 // Console pages are drawn by static/shell.js (renderConsolePage). They are not tabs of the generic list, and no list
 // read may ever build /api/<tab> from them: #/more would become GET /api/more, an endpoint that does not exist (#365).
 const consoleTabs = ['more', 'inbox', 'new-task', 'conversations', 'not-found'];
+// #936: last address that decided whether the task/delivery overlays should stay open.
+let overlayAddress;
 // #642: an address under #/ that names no page shows 找不到这个页面 instead of keeping (or silently loading) another page.
 // In-page anchors such as the skip link's #main-content are not console addresses and still keep the current page.
 function unknownAddress(hash) {
@@ -88,6 +90,15 @@ async function route() {
   if (!target && typeof leaveProjectPage === 'function') leaveProjectPage();
   if (tab !== 'settings') $('settings-panel').replaceChildren();
   const address=tab+':'+location.hash;if(messagePage!==address){notice('message');messagePage=address;}
+  // #936: task and delivery details sit on the current address. A new address must close them so they cannot cover
+  // the page the reader just opened. A redraw of the same address (list refresh, poll) must not. Editing dialogs
+  // such as #editor and confirm dialogs are left alone so in-progress input is not discarded.
+  if (overlayAddress !== location.hash) {
+    overlayAddress = location.hash;
+    if (typeof taskView !== 'undefined' && taskView.open) taskView.close();
+    const detailView = $('detail');
+    if (detailView?.open) detailView.close();
+  }
   const consolePage = consoleTabs.includes(tab);
   if (!consolePage) $('console-page').replaceChildren();
   const sample = !target && tab === 'design', samplePage = $('design-page');
